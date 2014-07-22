@@ -25,8 +25,9 @@ git: https://github.com/jhelie/xvg_average_op
  
 This script calculate the average of thickness data contained in several xvg files.
 
-It also calculates the (unbiased) standard deviation by using the Bienayme formula
-to calculate the variance (http://en.wikipedia.org/wiki/Variance).
+It also calculates the combined standard deviation as described on the wikipedia
+article:
+http://en.wikipedia.org/wiki/Standard_deviation#Population-based_statistics
 
 NB:
 the script may give out a warning 'return np.mean(x,axis)/factor', it's ok. it's just
@@ -112,6 +113,7 @@ def load_xvg():															#DONE
 	global weights
 	global data_thick_avg
 	global data_thick_std
+	global data_thick_nb
 	nb_rows = 0
 	nb_cols = 0
 	weights = np.ones(len(args.xvgfilenames))
@@ -149,8 +151,9 @@ def load_xvg():															#DONE
 		#check that each file has the same number of data rows
 		if f_index == 0:
 			nb_rows = np.shape(tmp_data)[0]
-			data_thick_avg = np.zeros((nb_rows, len(args.xvgfilenames) + 1))			#distance, avg op upper for each file
-			data_thick_std = np.zeros((nb_rows, len(args.xvgfilenames)))				#std op upper for each file
+			data_thick_avg = np.zeros((nb_rows, len(args.xvgfilenames) + 1))			#distance, thick avg for each file
+			data_thick_std = np.zeros((nb_rows, len(args.xvgfilenames)))				#thick std for each file
+			data_thick_nb = np.zeros((nb_rows, len(args.xvgfilenames)))				#thick std for each file
 		else:
 			if np.shape(tmp_data)[0] != nb_rows:
 				print "Error: file " + str(filename) + " has " + str(np.shape(tmp_data)[0]) + " data rows, whereas file " + str(args.xvgfilenames[0]) + " has " + str(nb_rows) + " data rows."
@@ -164,51 +167,25 @@ def load_xvg():															#DONE
 				sys.exit(1)
 		#check that each file has the same first column
 		if f_index == 0:
-			first_col = tmp_data[:,0]
+			data_thick_avg[:,0] = tmp_data[:,0]
 		else:
-			if not np.array_equal(tmp_data[:,0],first_col):
+			if not np.array_equal(tmp_data[:,0],data_thick_avg[:,0]):
 				print "\nError: the first column of file " + str(filename) + " is different than that of " + str(args.xvgfilenames[0]) + "."
 				sys.exit(1)
 		
 		#store data
-		if f_index == 0:
-			data_op_upper_avg[:,0] = tmp_data[:,0]
-			data_op_lower_avg[:,0] = tmp_data[:,0]
-		if args.membrane == "AM_zCter":
-			data_op_upper_avg[:, f_index + 1] = tmp_data[:,3]
-			data_op_upper_std[:, f_index] = tmp_data[:,6]
-			data_op_upper_nb[:, f_index] = tmp_data[:,9]
-			data_op_lower_avg[:, f_index + 1] = tmp_data[:,13]
-			data_op_lower_std[:, f_index] = tmp_data[:,17]
-			data_op_lower_nb[:, f_index] = tmp_data[:,21]
-		elif args.membrane == "AM_zNter":
-			data_op_upper_avg[:, f_index + 1] = tmp_data[:,15]
-			data_op_upper_std[:, f_index] = tmp_data[:,18]
-			data_op_upper_nb[:, f_index] = tmp_data[:,21]
-			data_op_lower_avg[:, f_index + 1] = tmp_data[:,4]
-			data_op_lower_std[:, f_index] = tmp_data[:,8]
-			data_op_lower_nb[:, f_index] = tmp_data[:,12]
-		elif args.membrane == "SMa":
-			data_op_upper_avg[:, f_index + 1] = tmp_data[:,16]
-			data_op_upper_std[:, f_index] = tmp_data[:,20]
-			data_op_upper_nb[:, f_index] = tmp_data[:,24]
-			data_op_lower_avg[:, f_index + 1] = tmp_data[:,4]
-			data_op_lower_std[:, f_index] = tmp_data[:,8]
-			data_op_lower_nb[:, f_index] = tmp_data[:,12]
+		if args.membrane in ["AM_zCter","AM_zNter","SMa"]:
+			data_thick_avg[:, f_index + 1] = tmp_data[:,4]
+			data_thick_std[:, f_index] = tmp_data[:,8]
+			data_thick_nb[:, f_index] = tmp_data[:,12]
 		elif args.membrane == "SMz":
-			data_op_upper_avg[:, f_index + 1] = tmp_data[:,12]
-			data_op_upper_std[:, f_index] = tmp_data[:,15]
-			data_op_upper_nb[:, f_index] = tmp_data[:,18]
-			data_op_lower_avg[:, f_index + 1] = tmp_data[:,3]
-			data_op_lower_std[:, f_index] = tmp_data[:,6]
-			data_op_lower_nb[:, f_index] = tmp_data[:,9]
+			data_thick_avg[:, f_index + 1] = tmp_data[:,3]
+			data_thick_std[:, f_index] = tmp_data[:,6]
+			data_thick_nb[:, f_index] = tmp_data[:,9]
 		elif args.membrane == "POPC":
-			data_op_upper_avg[:, f_index + 1] = tmp_data[:,8]
-			data_op_upper_std[:, f_index] = tmp_data[:,8]
-			data_op_upper_nb[:, f_index] = tmp_data[:,12]
-			data_op_lower_avg[:, f_index + 1] = tmp_data[:,2]
-			data_op_lower_std[:, f_index] = tmp_data[:,4]
-			data_op_lower_nb[:, f_index] = tmp_data[:,6]
+			data_thick_avg[:, f_index + 1] = tmp_data[:,2]
+			data_thick_std[:, f_index] = tmp_data[:,4]
+			data_thick_nb[:, f_index] = tmp_data[:,6]
 	return
 
 #=========================================================================================
@@ -217,49 +194,25 @@ def load_xvg():															#DONE
 
 def calculate_avg():													#DONE
 
-	global avg_op_upper_avg
-	global avg_op_upper_std
-	global avg_op_lower_avg
-	global avg_op_lower_std
+	global avg_thick_avg
+	global avg_thick_std
 				
-	avg_op_upper_avg = np.zeros((nb_rows, 2))
-	avg_op_upper_std = np.zeros((nb_rows, 1))
-	avg_op_lower_avg = np.zeros((nb_rows, 2))
-	avg_op_lower_std = np.zeros((nb_rows, 1))
+	avg_thick_avg = np.zeros((nb_rows, 2))
+	avg_thick_std = np.zeros((nb_rows, 1))
 
 	#distances
-	avg_op_upper_avg[:,0] = data_op_upper_avg[:,0]
-	avg_op_lower_avg[:,0] = data_op_lower_avg[:,0]
+	avg_thick_avg[:,0] = data_thick_avg[:,0]
 
 	#calculate weighted average taking into account "nan"
 	#----------------------------------------------------
-	avg_op_upper_avg[:,1] =  scipy.stats.nanmean(data_op_upper_avg[:,1:] * weights * len(args.xvgfilenames) / float(np.sum(weights)) , axis = 1)
-	avg_op_lower_avg[:,1] =  scipy.stats.nanmean(data_op_lower_avg[:,1:] * weights * len(args.xvgfilenames) / float(np.sum(weights)) , axis = 1)
+	avg_thick_avg[:,1] =  scipy.stats.nanmean(data_thick_avg[:,1:] * weights * len(args.xvgfilenames) / float(np.sum(weights)) , axis = 1)
 
 	#calculate unbiased weighted std dev taking into account "nan"
-	#-------------------------------------------------------------
-	#from Bienayme formula
-	# var(Xavg) = 1/(sum(wi))**2 * sum(wi**2 * var(Xi))
-		
-	#calculate total number of points
-	tmp_nb_total_upper = np.copy(data_op_upper_nb)
-	tmp_nb_total_upper[tmp_nb_total_upper != 0] += 1
-	tmp_nb_total_upper = np.sum(tmp_nb_total_upper, axis = 1)
-	tmp_nb_total_upper -= 1
-	tmp_nb_total_upper[tmp_nb_total_upper == 0] = 1
-	tmp_nb_total_upper[tmp_nb_total_upper == -1] = 1
-	
-	#calculate total number of points
-	tmp_nb_total_lower = np.copy(data_op_lower_nb)
-	tmp_nb_total_lower[tmp_nb_total_lower != 0] += 1
-	tmp_nb_total_lower = np.sum(tmp_nb_total_lower, axis = 1)
-	tmp_nb_total_lower -= 1
-	tmp_nb_total_lower[tmp_nb_total_lower == 0] = 1
-	tmp_nb_total_lower[tmp_nb_total_lower == -1] = 1
-	
-	#apply bienayme formula
-	avg_op_upper_std[:,0] = np.sqrt(np.nansum(weights**2 * data_op_upper_std**2 * data_op_upper_nb, axis = 1) / (np.sum(weights)**2 * tmp_nb_total_upper))
-	avg_op_lower_std[:,0] = np.sqrt(np.nansum(weights**2 * data_op_lower_std**2 * data_op_lower_nb, axis = 1) / (np.sum(weights)**2 * tmp_nb_total_lower))
+	#-------------------------------------------------------------	
+	#include weights = multiply size of the ensemble by the corresponding weight?
+	tmp_div = np.copy(np.sum(weights * data_thick_nb, axis =1))
+	tmp_div[tmp_div == 0] = 1
+	avg_thick_std[:, 0] = np.sqrt(np.nansum(weights * data_thick_nb * (data_thick_std**2 + data_thick_avg[:,1:]**2), axis = 1) / tmp_div - avg_thick_avg[:,1]**2)
 		
 	return
 
@@ -293,16 +246,14 @@ def write_xvg():														#DONE
 	output_xvg.write("@ legend box on\n")
 	output_xvg.write("@ legend loctype view\n")
 	output_xvg.write("@ legend 0.98, 0.8\n")
-	output_xvg.write("@ legend length 4\n")
-	output_xvg.write("@ s0 legend \"upper (avg)\"\n")
-	output_xvg.write("@ s1 legend \"upper (std)\"\n")
-	output_xvg.write("@ s2 legend \"lower (avg)\"\n")
-	output_xvg.write("@ s3 legend \"lower (std)\"\n")
-	
+	output_xvg.write("@ legend length 2\n")
+	output_xvg.write("@ s0 legend \"thick (avg)\"\n")
+	output_xvg.write("@ s1 legend \"thick (std)\"\n")
+
 	#data
 	for r in range(0, nb_rows):
-		results = str(avg_op_upper_avg[r,0])
-		results += "	" + "{:.6e}".format(avg_op_upper_avg[r,1]) + "	" + "{:.6e}".format(avg_op_upper_std[r,0]) + "	" + "{:.6e}".format(avg_op_lower_avg[r,1]) + "	" + "{:.6e}".format(avg_op_lower_std[r,0])
+		results = str(avg_thick_avg[r,0])
+		results += "	" + "{:.6e}".format(avg_thick_avg[r,1]) + "	" + "{:.6e}".format(avg_thick_std[r,0])
 		output_xvg.write(results + "\n")		
 	output_xvg.close()	
 	
