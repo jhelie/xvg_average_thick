@@ -38,7 +38,7 @@ expect (see this thread: https://github.com/scipy/scipy/issues/2898).
 Option	      Default  	Description                    
 -----------------------------------------------------
 -f			: xvg file(s)
--o		op_avg	: name of outptut file
+-o		thick_avg	: name of outptut file
 --membrane		: 'AM_zCter','AM_zNter','SMa','SMz' or 'POPC'
 --comments	@,#	: lines starting with these characters will be considered as comment
 
@@ -51,7 +51,7 @@ Other options
 
 #options
 parser.add_argument('-f', nargs='+', dest='xvgfilenames', help=argparse.SUPPRESS, required=True)
-parser.add_argument('-o', nargs=1, dest='output_file', default=["op_avg"], help=argparse.SUPPRESS)
+parser.add_argument('-o', nargs=1, dest='output_file', default=["thick_avg"], help=argparse.SUPPRESS)
 parser.add_argument('--membrane', dest='membrane', choices=['AM_zCter','AM_zNter','SMa','SMz','POPC'], default='not specified', help=argparse.SUPPRESS, required=True)
 parser.add_argument('--comments', nargs=1, dest='comments', default=['@,#'], help=argparse.SUPPRESS)
 
@@ -201,16 +201,50 @@ def calculate_avg():													#DONE
 	#distances
 	avg_thick_avg[:,0] = data_thick_avg[:,0]
 
+	#remove nan values of the weights for average values
+	weights_nan_avg = np.zeros((nb_rows, 1))	
+	weights_nan_avg_sq = np.zeros((nb_rows, 1))	
+	nb_files_avg = np.ones((nb_rows, 1)) * len(args.xvgfilenames)
+	tmp_weights_nan = np.zeros((nb_rows, len(args.xvgfilenames)))
+	for r in range(0, nb_rows):
+		tmp_weights_nan[r,:] = weights
+		for f_index in range(0, len(args.xvgfilenames)):
+			if np.isnan(data_thick_avg[r,f_index + 1]):
+				tmp_weights_nan[r,f_index] = 0
+				nb_files_avg[r,0] -= 1
+	weights_nan_avg[:,0] = np.nansum(tmp_weights_nan, axis = 1)
+	weights_nan_avg_sq[:,0] = np.nansum(tmp_weights_nan**2, axis = 1)	
+	weights_nan_avg[weights_nan_avg == 0] = 1
+	
+	#remove nan values of the weights for std dev values
+	weights_nan_std = np.zeros((nb_rows, 1))	
+	weights_nan_std_sq = np.zeros((nb_rows, 1))	
+	nb_files_std = np.ones((nb_rows, 1)) * len(args.xvgfilenames)
+	tmp_weights_nan = np.zeros((nb_rows, len(args.xvgfilenames)))
+	for r in range(0, nb_rows):
+		tmp_weights_nan[r,:] = weights
+		for f_index in range(0, len(args.xvgfilenames)):
+			if np.isnan(data_thick_std[r,f_index]):
+				tmp_weights_nan[r,f_index] = 0
+				nb_files_std[r,0] -= 1
+	weights_nan_std[:,0] = np.nansum(tmp_weights_nan, axis = 1)
+	weights_nan_std_sq[:,0] = np.nansum(tmp_weights_nan**2, axis = 1)	
+	weights_nan_std[weights_nan_std == 0] = 1
+
 	#calculate weighted average taking into account "nan"
 	#----------------------------------------------------
-	avg_thick_avg[:,1] =  scipy.stats.nanmean(data_thick_avg[:,1:] * weights * len(args.xvgfilenames) / float(np.sum(weights)) , axis = 1)
-	avg_thick_std[:,0] =  scipy.stats.nanmean(data_thick_std * weights * len(args.xvgfilenames) / float(np.sum(weights)) , axis = 1)
+	avg_thick_avg[:,1] =  scipy.stats.nanmean(data_thick_avg[:,1:] * weights * nb_files_avg / weights_nan_avg, axis = 1)
+	avg_thick_std[:,0] =  scipy.stats.nanmean(data_thick_std * weights * nb_files_std / weights_nan_std , axis = 1)
 
 	#calculate unbiased weighted std dev taking into account "nan"
 	#-------------------------------------------------------------
-	std_thick_avg[:,0] = np.sqrt(np.sum(weights) / float(np.sum(weights)**2 - np.sum(weights**2)) * np.nansum(weights * (data_thick_avg[:,1:] - avg_thick_avg[:,1:2])**2, axis = 1))	
-	std_thick_std[:,0] = np.sqrt(np.sum(weights) / float(np.sum(weights)**2 - np.sum(weights**2)) * np.nansum(weights * (data_thick_std - avg_thick_std)**2, axis = 1))
-			
+	tmp_avg = np.zeros((nb_rows, 1))
+	tmp_std = np.zeros((nb_rows, 1))
+	tmp_avg[:,0] = np.nansum(weights * (data_thick_avg[:,1:] - avg_thick_avg[:,1:2])**2, axis = 1)
+	tmp_std[:,0] = np.nansum(weights * (data_thick_std - avg_thick_std)**2, axis = 1)
+	std_thick_avg = np.sqrt(weights_nan_avg / ((weights_nan_avg)**2 - weights_nan_avg_sq) * tmp_avg)
+	std_thick_std = np.sqrt(weights_nan_std / ((weights_nan_std)**2 - weights_nan_std_sq) * tmp_std)
+				
 	return
 
 #=========================================================================================
