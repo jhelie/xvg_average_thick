@@ -13,7 +13,7 @@ import os.path
 # create parser
 #=========================================================================================
 version_nb = "0.0.1"
-parser = argparse.ArgumentParser(prog = 'xvg_average_thick', usage='', add_help = False, formatter_class = argparse.RawDescriptionHelpFormatter, description =\
+parser = argparse.ArgumentParser(prog = 'xvg_average_thick_simple', usage='', add_help = False, formatter_class = argparse.RawDescriptionHelpFormatter, description =\
 '''
 **********************************************
 v''' + version_nb + '''
@@ -25,9 +25,8 @@ git: https://github.com/jhelie/xvg_average_op
  
 This script calculate the average of thickness data contained in several xvg files.
 
-It also calculates the combined standard deviation as described on the wikipedia
-article:
-http://en.wikipedia.org/wiki/Standard_deviation#Population-based_statistics
+It calculates the avg and std dev for both the avg and std dev given as input (i.e.
+the avg and std dev inputs are both just treated as metrics)
 
 NB:
 the script may give out a warning 'return np.mean(x,axis)/factor', it's ok. it's just
