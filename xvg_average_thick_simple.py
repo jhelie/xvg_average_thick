@@ -112,7 +112,6 @@ def load_xvg():															#DONE
 	global weights
 	global data_thick_avg
 	global data_thick_std
-	global data_thick_nb
 	nb_rows = 0
 	nb_cols = 0
 	weights = np.ones(len(args.xvgfilenames))
@@ -152,7 +151,6 @@ def load_xvg():															#DONE
 			nb_rows = np.shape(tmp_data)[0]
 			data_thick_avg = np.zeros((nb_rows, len(args.xvgfilenames) + 1))			#distance, thick avg for each file
 			data_thick_std = np.zeros((nb_rows, len(args.xvgfilenames)))				#thick std for each file
-			data_thick_nb = np.zeros((nb_rows, len(args.xvgfilenames)))				#thick std for each file
 		else:
 			if np.shape(tmp_data)[0] != nb_rows:
 				print "Error: file " + str(filename) + " has " + str(np.shape(tmp_data)[0]) + " data rows, whereas file " + str(args.xvgfilenames[0]) + " has " + str(nb_rows) + " data rows."
@@ -176,15 +174,12 @@ def load_xvg():															#DONE
 		if args.membrane in ["AM_zCter","AM_zNter","SMa"]:
 			data_thick_avg[:, f_index + 1] = tmp_data[:,4]
 			data_thick_std[:, f_index] = tmp_data[:,8]
-			data_thick_nb[:, f_index] = tmp_data[:,12]
 		elif args.membrane == "SMz":
 			data_thick_avg[:, f_index + 1] = tmp_data[:,3]
 			data_thick_std[:, f_index] = tmp_data[:,6]
-			data_thick_nb[:, f_index] = tmp_data[:,9]
 		elif args.membrane == "POPC":
 			data_thick_avg[:, f_index + 1] = tmp_data[:,2]
 			data_thick_std[:, f_index] = tmp_data[:,4]
-			data_thick_nb[:, f_index] = tmp_data[:,6]
 	return
 
 #=========================================================================================
@@ -195,9 +190,13 @@ def calculate_avg():													#DONE
 
 	global avg_thick_avg
 	global avg_thick_std
+	global std_thick_avg
+	global std_thick_std
 				
 	avg_thick_avg = np.zeros((nb_rows, 2))
 	avg_thick_std = np.zeros((nb_rows, 1))
+	std_thick_avg = np.zeros((nb_rows, 1))
+	std_thick_std = np.zeros((nb_rows, 1))
 
 	#distances
 	avg_thick_avg[:,0] = data_thick_avg[:,0]
@@ -205,14 +204,14 @@ def calculate_avg():													#DONE
 	#calculate weighted average taking into account "nan"
 	#----------------------------------------------------
 	avg_thick_avg[:,1] =  scipy.stats.nanmean(data_thick_avg[:,1:] * weights * len(args.xvgfilenames) / float(np.sum(weights)) , axis = 1)
+	avg_thick_std[:,0] =  scipy.stats.nanmean(data_thick_std * weights * len(args.xvgfilenames) / float(np.sum(weights)) , axis = 1)
 
 	#calculate unbiased weighted std dev taking into account "nan"
-	#-------------------------------------------------------------	
-	#include weights = multiply size of the ensemble by the corresponding weight?
-	tmp_div = np.copy(np.sum(weights * data_thick_nb, axis =1))
-	tmp_div[tmp_div == 0] = 1
-	avg_thick_std[:, 0] = np.sqrt(np.nansum(weights * data_thick_nb * (data_thick_std**2 + data_thick_avg[:,1:]**2), axis = 1) / tmp_div - avg_thick_avg[:,1]**2)
-		
+	#-------------------------------------------------------------
+	filename = args.xvgfilenames[0]
+	std_thick_avg[:,0] = np.sqrt(np.sum(weights) / float(np.sum(weights)**2 - np.sum(weights**2)) * np.nansum(weights * (data_thick_avg[:,1:] - avg_thick_avg[:,1:2])**2, axis = 1))	
+	std_thick_std[:,0] = np.sqrt(np.sum(weights) / float(np.sum(weights)**2 - np.sum(weights**2)) * np.nansum(weights * (data_thick_std - avg_thick_std)**2, axis = 1))
+			
 	return
 
 #=========================================================================================
@@ -226,7 +225,7 @@ def write_xvg():														#DONE
 	output_xvg = open(filename_xvg, 'w')
 	
 	#general header
-	output_xvg.write("# [average xvg - written by xvg_average_op v" + str(version_nb) + "]\n")
+	output_xvg.write("# [average xvg - written by xvg_average_thick_simple v" + str(version_nb) + "]\n")
 	tmp_files = ""
 	for f in args.xvgfilenames:
 		tmp_files += "," + str(f)
@@ -245,14 +244,16 @@ def write_xvg():														#DONE
 	output_xvg.write("@ legend box on\n")
 	output_xvg.write("@ legend loctype view\n")
 	output_xvg.write("@ legend 0.98, 0.8\n")
-	output_xvg.write("@ legend length 2\n")
-	output_xvg.write("@ s0 legend \"thick (avg)\"\n")
-	output_xvg.write("@ s1 legend \"thick (std)\"\n")
+	output_xvg.write("@ legend length 4\n")
+	output_xvg.write("@ s0 legend \"thick avg (avg)\"\n")
+	output_xvg.write("@ s1 legend \"thick avg (std)\"\n")
+	output_xvg.write("@ s2 legend \"thick std (avg)\"\n")
+	output_xvg.write("@ s3 legend \"thick std (std)\"\n")
 
 	#data
 	for r in range(0, nb_rows):
 		results = str(avg_thick_avg[r,0])
-		results += "	" + "{:.6e}".format(avg_thick_avg[r,1]) + "	" + "{:.6e}".format(avg_thick_std[r,0])
+		results += "	" + "{:.6e}".format(avg_thick_avg[r,1]) + "	" + "{:.6e}".format(std_thick_avg[r,0]) + "	" + "{:.6e}".format(avg_thick_std[r,0])+ "	" + "{:.6e}".format(std_thick_std[r,0])
 		output_xvg.write(results + "\n")		
 	output_xvg.close()	
 	
