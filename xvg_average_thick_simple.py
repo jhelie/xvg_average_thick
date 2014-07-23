@@ -242,8 +242,12 @@ def calculate_avg():													#DONE
 	tmp_std = np.zeros((nb_rows, 1))
 	tmp_avg[:,0] = np.nansum(weights * (data_thick_avg[:,1:] - avg_thick_avg[:,1:2])**2, axis = 1)
 	tmp_std[:,0] = np.nansum(weights * (data_thick_std - avg_thick_std)**2, axis = 1)
-	std_thick_avg = np.sqrt(weights_nan_avg / ((weights_nan_avg)**2 - weights_nan_avg_sq) * tmp_avg)
-	std_thick_std = np.sqrt(weights_nan_std / ((weights_nan_std)**2 - weights_nan_std_sq) * tmp_std)
+	tmp_div_avg = np.copy((weights_nan_avg)**2 - weights_nan_avg_sq)
+	tmp_div_avg[tmp_div_avg == 0] = 1
+	tmp_div_std = np.copy((weights_nan_std)**2 - weights_nan_std_sq)
+	tmp_div_std[tmp_div_std == 0] = 1
+	std_thick_avg = np.sqrt(weights_nan_avg / tmp_div_avg * tmp_avg)
+	std_thick_std = np.sqrt(weights_nan_std / tmp_div_std * tmp_std)
 				
 	return
 
