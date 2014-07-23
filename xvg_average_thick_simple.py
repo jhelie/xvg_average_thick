@@ -208,7 +208,6 @@ def calculate_avg():													#DONE
 
 	#calculate unbiased weighted std dev taking into account "nan"
 	#-------------------------------------------------------------
-	filename = args.xvgfilenames[0]
 	std_thick_avg[:,0] = np.sqrt(np.sum(weights) / float(np.sum(weights)**2 - np.sum(weights**2)) * np.nansum(weights * (data_thick_avg[:,1:] - avg_thick_avg[:,1:2])**2, axis = 1))	
 	std_thick_std[:,0] = np.sqrt(np.sum(weights) / float(np.sum(weights)**2 - np.sum(weights**2)) * np.nansum(weights * (data_thick_std - avg_thick_std)**2, axis = 1))
 			
